@@ -4,6 +4,14 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const setupSwagger = require('./swagger');
 
+// Global Error Handlers for debugging
+process.on('uncaughtException', (err) => {
+    console.error('CRITICAL: Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const app = express();
 const port = 3000;
 
@@ -170,6 +178,4 @@ app.delete('/api/articles/:id', (req, res) => {
     });
 });
 
-app.listen(port, () => {
-    console.log(`Serveur démarré sur http://localhost:${port}`);
-});
+module.exports = app;
