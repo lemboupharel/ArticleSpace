@@ -197,8 +197,8 @@ const options = {
         },
         servers: [
             {
-                url: 'http://localhost:3000',
-                description: 'Serveur Local'
+                url: process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000',
+                description: 'Serveur'
             }
         ]
     },
