@@ -5,7 +5,7 @@ const path = require('path');
 const setupSwagger = require('./swagger');
 
 const app = express();
-const port = 3000;
+const port = 8080;
 
 // middleware
 app.use(bodyParser.json());
