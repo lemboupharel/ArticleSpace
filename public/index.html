@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog Space - Gestion d'Articles</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .navbar {
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .article-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .article-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            border: none;
+        }
+
+        .category-badge {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        #articleList {
+            min-height: 400px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light py-3 mb-4">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="#">ArticleSpace</a>
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#articleModal"
+                onclick="prepareAdd()">
+                + Nouvel Article
+            </button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Filtres & Recherche -->
+        <div class="row g-3 mb-4 align-items-center">
+            <div class="col-md-4">
+                <input type="text" id="searchInput" class="form-control" placeholder="Rechercher...">
+            </div>
+            <div class="col-md-3">
+                <select id="categoryFilter" class="form-select" onchange="applyFilters()">
+                    <option value="">Toutes les catégories</option>
+                </select>
+            </div>
+            <div class="col-md-5 text-end">
+                <span class="text-muted" id="articleCount">Chargement...</span>
+            </div>
+        </div>
+
+        <!-- List les Article -->
+        <div id="articleList" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+
+        </div>
+    </div>
+
+    <!-- Modal pour Cree et modifier -->
+    <div class="modal fade" id="articleModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Nouvel Article</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="articleForm">
+                        <input type="hidden" id="articleId">
+                        <div class="mb-3">
+                            <label class="form-label">Titre</label>
+                            <input type="text" class="form-control" id="titre" required>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Auteur</label>
+                                <input type="text" class="form-control" id="auteur" required>
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Catégorie</label>
+                                <select class="form-select" id="categorie" required>
+                                    <option value="" disabled selected>Choisir...</option>
+                                    <option value="Éducation">Éducation</option>
+                                    <option value="Informatique">Informatique</option>
+                                    <option value="Technologie">Technologie</option>
+                                    <option value="Apprentissage">Apprentissage</option>
+                                    <option value="Sport">Sport</option>
+                                    <option value="Actualités">Actualités</option>
+                                    <option value="Jeux Vidéo">Jeux Vidéo</option>
+                                    <option value="Style de vie">Style de vie</option>
+                                    <option value="Santé">Santé</option>
+                                    <option value="Finance">Finance</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" id="date" required>
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Tags (séparés par des virgules)</label>
+                                <input type="text" class="form-control" id="tags">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Contenu</label>
+                            <textarea class="form-control" id="contenu" rows="5" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveArticle()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const API_URL = '/api/articles';
+        let articleModal;
+
+        const FIXED_CATEGORIES = [
+            "Éducation", "Informatique", "Technologie", "Apprentissage", "Sport",
+            "Actualités", "Jeux Vidéo", "Style de vie", "Santé", "Finance"
+        ];
+
+        let allArticles = [];
+
+        async function loadArticles() {
+            try {
+                const resp = await fetch(API_URL);
+                allArticles = await resp.json();
+                updateCategoryFilters(allArticles);
+                renderArticles(allArticles);
+            } catch (err) {
+                console.error('Failed to load articles', err);
+            }
+        }
+
+        function updateCategoryFilters(articles) {
+            const filter = document.getElementById('categoryFilter');
+            const currentValue = filter.value;
+
+            // categories avec 1+ article
+            const activeCategories = [...new Set(articles.map(a => a.categorie))].filter(Boolean).sort();
+
+            filter.innerHTML = '<option value="">Toutes les catégories</option>';
+            activeCategories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                if (cat === currentValue) opt.selected = true;
+                filter.appendChild(opt);
+            });
+        }
+
+        async function applyFilters() {
+            const category = document.getElementById('categoryFilter').value;
+            const query = document.getElementById('searchInput').value;
+
+            if (query) {
+                await searchArticles();
+                return;
+            }
+
+            let url = API_URL;
+            if (category) url += `?category=${encodeURIComponent(category)}`;
+
+            try {
+                const resp = await fetch(url);
+                const articles = await resp.json();
+                renderArticles(articles);
+            } catch (err) {
+                console.error('Filtering failed', err);
+            }
+        }
+
+        async function searchArticles() {
+            const query = document.getElementById('searchInput').value;
+            const category = document.getElementById('categoryFilter').value;
+
+            if (!query && !category) {
+                loadArticles();
+                return;
+            }
+
+            let url = query ? `${API_URL}/search?query=${encodeURIComponent(query)}` : API_URL;
+
+            try {
+                const resp = await fetch(url);
+                let articles = await resp.json();
+
+                if (category) {
+                    articles = articles.filter(a => a.categorie === category);
+                }
+
+                renderArticles(articles);
+            } catch (err) {
+                console.error('Search failed', err);
+            }
+        }
+
+        function renderArticles(articles) {
+            const container = document.getElementById('articleList');
+            const countSpan = document.getElementById('articleCount');
+            container.innerHTML = '';
+            countSpan.textContent = `${articles.length} article(s) trouvé(s)`;
+
+            if (articles.length === 0) {
+                container.innerHTML = '<div class="col-12 text-center py-5 text-muted">Aucun article trouvé.</div>';
+                return;
+            }
+
+            articles.forEach(art => {
+                const dateStr = art.date ? new Date(art.date).toLocaleDateString('fr-FR') : '-';
+                const card = document.createElement('div');
+                card.className = 'col';
+                card.innerHTML = `
+                <div class="card h-100 article-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-light text-primary category-badge">${art.categorie}</span>
+                            <small class="text-muted">${dateStr}</small>
+                        </div>
+                        <h5 class="card-title fw-bold text-dark">${art.titre}</h5>
+                        <p class="card-text text-secondary">${art.contenu.substring(0, 100)}${art.contenu.length > 100 ? '...' : ''}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small class="fw-semibold text-muted">Par ${art.auteur}</small>
+                            <div>
+                                <button class="btn btn-outline-secondary btn-sm me-1 edit-btn">Éditer</button>
+                                <button class="btn btn-outline-danger btn-sm delete-btn">Suppr.</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 pt-0 pb-3 ps-3">
+                        <small class="text-muted" style="font-size: 0.7rem;">Tags: ${art.tags || '-'}</small>
+                    </div>
+                </div>
+            `;
+
+                card.querySelector('.edit-btn').onclick = () => editArticle(art.id);
+                card.querySelector('.delete-btn').onclick = () => deleteArticle(art.id);
+
+                container.appendChild(card);
+            });
+        }
+
+        let searchTimeout;
+        document.addEventListener('DOMContentLoaded', () => {
+            const modalElement = document.getElementById('articleModal');
+            if (modalElement) {
+                articleModal = new bootstrap.Modal(modalElement);
+            }
+
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(applyFilters, 300);
+                });
+            }
+
+            loadArticles();
+        });
+
+        function prepareAdd() {
+            document.getElementById('modalTitle').textContent = 'Nouvel Article';
+            document.getElementById('articleForm').reset();
+            document.getElementById('articleId').value = '';
+            document.getElementById('date').valueAsDate = new Date();
+        }
+
+        async function editArticle(id) {
+            console.log('Editing article:', id);
+            try {
+                const resp = await fetch(`${API_URL}/${id}`);
+                const art = await resp.json();
+
+                document.getElementById('modalTitle').textContent = 'Modifier l\'Article';
+                document.getElementById('articleId').value = art.id;
+                document.getElementById('titre').value = art.titre;
+                document.getElementById('auteur').value = art.auteur;
+                document.getElementById('categorie').value = art.categorie;
+                document.getElementById('date').value = art.date;
+                document.getElementById('tags').value = art.tags;
+                document.getElementById('contenu').value = art.contenu;
+
+                articleModal.show();
+            } catch (err) {
+                alert('Erreur lors du chargement de l\'article');
+            }
+        }
+
+        async function saveArticle() {
+            const id = document.getElementById('articleId').value;
+            const data = {
+                titre: document.getElementById('titre').value,
+                auteur: document.getElementById('auteur').value,
+                categorie: document.getElementById('categorie').value,
+                date: document.getElementById('date').value,
+                tags: document.getElementById('tags').value,
+                contenu: document.getElementById('contenu').value
+            };
+
+            if (!data.categorie) {
+                alert('Veuillez choisir une catégorie.');
+                return;
+            }
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `${API_URL}/${id}` : API_URL;
+
+            try {
+                const resp = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (resp.ok) {
+                    articleModal.hide();
+                    loadArticles();
+                } else {
+                    const error = await resp.json();
+                    alert('Erreur: ' + error.error);
+                }
+            } catch (err) {
+                alert('Une erreur est survenue lors de l\'enregistrement');
+            }
+        }
+
+        async function deleteArticle(id) {
+            console.log('Delete requested for:', id);
+            if (!id) return;
+
+            if (!window.confirm('Voulez-vous vraiment supprimer cet article ?')) return;
+
+            try {
+                const resp = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                if (resp.ok) {
+                    console.log('Delete successful');
+                    loadArticles();
+                } else {
+                    const errData = await resp.json();
+                    alert('Erreur lors de la suppression: ' + (errData.error || 'Erreur inconnue'));
+                }
+            } catch (err) {
+                console.error('Delete network error', err);
+                alert('Une erreur réseau est survenue');
+            }
+        }
+    </script>
+
+</body>
+
+</html>
