@@ -28,3 +28,9 @@ primary_region = 'ams'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
+
+[build]
+  builder = "paketobuildpacks/builder:base"
+
+[env]
+  npm_config_build_from_source = "true"
